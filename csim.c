@@ -6,6 +6,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
+
+int verbose;
 
 void hel()
 {
@@ -15,7 +18,7 @@ void hel()
    printf("-t <tracefile> Number of the valgrind trace to reply");
 }
 
-//
+//parameter struct to save the variables to use in functions
 typedef struct
 {
    int s; // the cache sets
@@ -35,7 +38,7 @@ typedef struct
 {
    int valid; // valid bit
    char *block;  //block
-   unsigned long long tag; // tag bit
+   unsigned long long int tag; // tag bit
    int last_line; // the last line used
 } set_l;
 
@@ -43,12 +46,12 @@ typedef struct
 typedef struct
 {
    set_l *lines;
-} set_s;
+} set_c;
 
 //cache struct
 typedef struct
 {
-   set_s *sets;
+   set_c *sets;
 } cache;
 
 
@@ -57,12 +60,12 @@ cache b_c(int set_n, int line_n, int blk_sz)
 {
    // ini the cache, set and line
    cache new_c;
-   set_s sets;
+   set_c sets;
    set_l line;
 
 
    // allocate storage for the sets in cache
-   new_c.sets = (set_s *) malloc(sizeof(set_s) * set_n);
+   new_c.sets = (set_c *) malloc(sizeof(set_c) * set_n);
 
    //i: set index, is 0 to s-1
    for (int i = 0; i < set_n; i++)
@@ -85,7 +88,7 @@ cache b_c(int set_n, int line_n, int blk_sz)
 }// done building the cache
 
 //LRU function cause it's better than jaming everything in sim cache func
-int LRU (set_s c, param par, int *used_l)
+int LRU (set_c c, param par, int *used_l)
 {
 
    //most and least recently used lines
@@ -121,24 +124,23 @@ int LRU (set_s c, param par, int *used_l)
 }
 
 //simulate the cache
-param sim_c (cache c, param par, long long int addr)
+param sim_c (cache c, param par, unsigned long long int addr, char op, int size)
 {
    int c_full = 1; // is the cache full?
 
    int lines_n = par.E;
    int prev = par.hits;
-
-   unsigned long long temp = addr << (64 - (par.s + par.b)); // bit shift left the tag size
-   unsigned long long set_ind = temp >> ((64 - (par.s+par.b)) + par.b); // set index is bit shifted right
+   int tag = (64 - (par.s + par.b));
+   unsigned long long temp = addr << tag; // bit shift left the tag size
+   unsigned long long set_ind = temp >> (tag + par.b); // set index is bit shifted right
 
    unsigned long long in_tag = addr >> (par.s+par.b);
-
-   set_s q_set = c.sets[set_ind];
-
+   
+   set_c q_set = c.sets[set_ind];
    for (int i = 0; i < lines_n; i++)
    {
       set_l line = q_set.lines[i];
-
+      
       if(line.valid)
       {
 	 if (line.tag == in_tag) //hit
@@ -146,15 +148,20 @@ param sim_c (cache c, param par, long long int addr)
 	    line.last_line++;
 	    par.hits++;
 	    q_set.lines[i] = line;
+	    if (verbose == 1)
+	       printf("%c %llx,%d hit\n", op, addr, size);
 	 }
       }
       else if(!(line.valid && c_full))
 	 c_full = 0;
-      
    }
    if (prev == par.hits)
+   {
       //miss
       par.miss++;
+      if(verbose == 1)
+	 printf("%c %llx,%d miss\n", op, addr, size);
+   }
    else
       return par;// we found the data in the cache and it was a hit
 
@@ -184,6 +191,8 @@ param sim_c (cache c, param par, long long int addr)
       par.evict++;
       q_set.lines[min_ind].tag = in_tag;
       q_set.lines[min_ind].last_line = used_l[1]+1;
+      if (verbose == 1)
+	 printf("%c %llx,%d evict\n", op, addr, size);
    }
    free(used_l);
    return par;
@@ -191,16 +200,7 @@ param sim_c (cache c, param par, long long int addr)
 
 int main(int argc, char* argv[])//number of args and the arguments
 {
-   printf("Argc %d: ", argc);
-   printf("\n");
-   //test printing the arguements
-   for (int i = 1; i < argc; i++)
-   {
-      printf("Args %d : %s\n", i, argv[i]);
-   }
-   //works!!!
-   
-   cache my_cache;
+   cache myCache;
    param par;
    
    char op; // takes the operation
@@ -208,42 +208,34 @@ int main(int argc, char* argv[])//number of args and the arguments
    unsigned long long int addr;
    //file type variable to open and read the file
    FILE *f_read;
-   
    //if there is no -h/-v/-hv
    if (argc == 9)
    {
-      printf("argc: %d", argc);
-      
       if(strcmp(argv[1], "-s") == 0)
       {
-	 printf("\nin -s \n");
 	 par.s = atoi (argv[2]);// get the string index from the input
-
-         //test
-	 printf ("%d", par.s);
-	 printf("\n");
       }
 
       if(strcmp(argv[3], "-E") == 0)
       {
-	 printf ("\nin -E\n");
 	 par.E = atoi (argv[4]);
 	 
-	 //test
-	 printf("%d", par.E);
-	 printf("\n");
       }
 
       if(strcmp(argv[5], "-b") == 0)
       {
-	 printf ("\nin -b\n");
 	 par.b = atoi (argv[6]);
-	 
-	 //test
-	 printf("%d", par.b);
-	 printf("\n");
       }
+
+      //compute S and B
+      par.S = pow(2.0, par.s);
+      par.B = pow(2.0, par.b);
+
+      par.hits = 0;
+      par.miss = 0;
+      par.evict = 0;
       
+      myCache = b_c(par.S, par.E, par.B);// make the cache so there isn't a seg fault later...
       //get the trace file and run the simulator
       if (strcmp(argv[7], "-t") == 0)
       {
@@ -256,29 +248,30 @@ int main(int argc, char* argv[])//number of args and the arguments
 	 
 	 else
 	 {
-	    while (fscanf(f_read, "%c %llx,%d", &op, &addr, &size) == 3)// while there are 3 inputs that fit op, addr and size
+	    
+	    while (fscanf(f_read, " %c %llx,%d", &op, &addr, &size) == 3)// while there are 3 inputs that fit op, addr and size
 	    {
 	       if (op == 'I')
 	       {
 	       }
 	       if (op == 'L')
-		  par = sim_c(my_cache, par, addr);
+	       {
+		  par = sim_c(myCache, par, addr, op, size);
+	       }
 	       if (op == 'M')
 	       {
-		  par = sim_c(my_cache, par, addr);
-		  par = sim_c(my_cache, par, addr);
+		  par = sim_c(myCache, par, addr, op, size);
+		  par = sim_c(myCache, par, addr, op, size);
 	       }
 	       if (op == 'S')
-		  par = sim_c(my_cache, par, addr);
-	       else
-		  printf("there is an error in the trace file");
+		  par = sim_c(myCache, par, addr, op, size);
 	    }
 	 }//end of else
 	 
       }// end of if statement for -t
       
    }//end of if statement for if (argc == 9)
-/*
+
    //if there is a -h/-v/-hv
    else if (argc == 10)
    {
@@ -291,79 +284,80 @@ int main(int argc, char* argv[])//number of args and the arguments
       if(strcmp(argv[1], "-v") == 0)
       {
 	 //shows all the misses/hits/evicts when the program is run... need to implement
+	 verbose = 1;
       }
-
-      if (strcmp(argv[1], "-hv") == 0)
-      {
-	 printf("in -hv \n");
-	 hel();
-	 //shows all the misses/hits/evicts when the program is run... need to implement
-      }
-
+      
       if(strcmp(argv[2], "-s") == 0)
       {
-	 printf("\nin -s \n");
-	 set_in = atoi (argv[3]);// get the string index from the input
-	 
-	 //test
-	 printf ("%d", set_in);
-	 printf("\n");
+	 par.s = atoi (argv[3]);// get the string index from the input
       }
 
       if(strcmp(argv[4], "-E") == 0)
       {
-	 printf ("\nin -E\n");
-	 assoc_in = atoi (argv[5]);
-
-	 //test
-	 printf("%d", assoc_in);
-	 printf("\n");
+	 par.E = atoi (argv[5]);
       }
 
       if(strcmp(argv[6], "-b") == 0)
       {
-	 printf ("\nin -b\n");
-	 blk_in = atoi (argv[7]);
-
-	 //test
-	 printf("%d", blk_in);
-	 printf("\n");
+	 par.b = atoi (argv[7]);
+	 
       }
+
+      //compute S and B
+      par.S = pow(2.0, par.s);
+      par.B = pow(2.0, par.b);
+
+      par.hits = 0;
+      par.miss = 0;
+      par.evict = 0;
+      
+      myCache = b_c(par.S, par.E, par.B);
       //get the trace file and run the simulator
       if (strcmp(argv[8], "-t") == 0)
       {
 	 f_read = fopen(argv[9], "r"); // open the trace file and set it so we can read it
-
+	 //-----------------------------------------------------------------------------------------
 	 if (!f_read)// if we can't read the file
 	 {
 	    printf("file isn't there yo\n");
 	 }
-
+	 
 	 else
 	 {
-	    //while it's not the end of file keep reading in the input
-	    while (!feof(f_read))
-	    {
-	       // buff: to store the strigs read in from f_read
-	       // max_in: max number of characters to read in
-	       // f_read: the file to read in from
-	       fgets(buff, max_in, f_read);
-
-	       // if -v is there, print all the info in the file as well
-	       if (strcmp(argv[1], "-v") == 0 || strcmp(argv[1], "-hv") == 0)
-	       {
-		  
-	       }
-	       
-	    }// end of while in else
 	    
+	    while (fscanf(f_read, " %c %llx,%d", &op, &addr, &size) == 3)// while there are 3 inputs that fit op, addr and size
+	    {
+	       if (op == 'I')
+	       {
+	       }
+	       if (op == 'L')
+	       {
+		  par = sim_c(myCache, par, addr, op, size);
+	       }
+	       if (op == 'M')
+	       {
+		  par = sim_c(myCache, par, addr, op, size);
+		  par = sim_c(myCache, par, addr, op, size);
+	       }
+	       if (op == 'S')
+		  par = sim_c(myCache, par, addr, op, size);
+	    }
 	 }//end of else
 	 
       }// end of if statement for -t
-      
-      }// end of else if (argc == 10)
-*/
+   }// end of while in else
+   
    printSummary(par.hits, par.miss, par.evict);
+
+   for (int i = 0; i < par.S; i++)
+   {
+      set_c s = myCache.sets[i];
+      if (s.lines!= NULL)
+	 free(s.lines);
+   }
+   if (myCache.sets != NULL)
+      free(myCache.sets);
+   
    fclose(f_read);
    return 0;
 }
