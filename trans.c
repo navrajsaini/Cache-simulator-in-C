@@ -1,4 +1,6 @@
-/* 
+/*
+ * by: Navraj Saini (Sair4210)
+ * 
  * trans.c - Matrix transpose B = A^T
  *
  * Each transpose function must have a prototype of the form:
@@ -22,6 +24,75 @@ int is_transpose(int M, int N, int A[N][M], int B[M][N]);
 char transpose_submit_desc[] = "Transpose submission";
 void transpose_submit(int M, int N, int A[N][M], int B[M][N])
 {
+   int blocksz; // 8 for 32x32, 4 64x64, 9 for 61 x 67
+   if (N == 32)// for a 32x32 matrix
+   {
+      blocksz = 8;
+      for (int i = 0; i < N; i+= blocksz)
+      {
+	 for (int j = 0; j < M; j+= blocksz)
+	 {
+	    for (int k = 0; k < (i + blocksz); k++)
+	    {
+	       for (int l = 0; l < (j + blocksz); l++)
+	       {
+		  if (k != l)
+		     B[l][k] = A[k][l];// the rest of the matrix
+		  else
+		  {
+		     B[k][k] = A[k][l];// diagnal matrix
+		  }
+	       }// end of most inner for loop
+	    }// end of third for loop
+	 }// end of second for loop
+      }// end of first for loop
+   }
+
+   if (N == 64)// for a 32x32 matrix
+   {
+      blocksz = 4;
+      for (int i = 0; i < N; i+= blocksz)
+      {
+	 for (int j = 0; j < M; j+= blocksz)
+	 {
+	    for (int k = 0; k < (i + blocksz); k++)
+	    {
+	       for (int l = 0; l < (j + blocksz); l++)
+	       {
+		  if (k != l)
+		     B[l][k] = A[k][l];// the rest of the matrix
+		  else
+		  {
+		     B[k][k] = A[k][l];// diagnal matrix
+		  }
+	       }// end of most inner for loop
+	    }// end of third for loop
+	 }// end of second for loop
+      }// end of first for loop
+   }
+
+   if (N == 67)
+   {
+      blocksz = 9;
+      for (int i = 0; i < N; i+= blocksz)
+      {
+	 for (int j = 0; j < M; j+= blocksz)
+	 {
+	    for (int k = 0; k < (i + blocksz); k++)
+	    {
+	       for (int l = 0; l < (j + blocksz); l++)
+	       {
+		  if (k != l)
+		     B[l][k] = A[k][l];// the rest of the matrix
+		  else
+		  {
+		     B[k][k] = A[k][l];// diagnal matrix
+		  }
+	       }// end of most inner for loop
+	    }// end of third for loop
+	 }// end of second for loop
+      }// end of first for loop
+   }
 }
 
 /* 
@@ -37,8 +108,10 @@ void trans(int M, int N, int A[N][M], int B[M][N])
 {
     int i, j, tmp;
 
-    for (i = 0; i < N; i++) {
-        for (j = 0; j < M; j++) {
+    for (i = 0; i < N; i++)
+    {
+       for (j = 0; j < M; j++)
+       {
             tmp = A[i][j];
             B[j][i] = tmp;
         }
