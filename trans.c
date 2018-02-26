@@ -24,7 +24,7 @@ int is_transpose(int M, int N, int A[N][M], int B[M][N]);
 char transpose_submit_desc[] = "Transpose submission";
 void transpose_submit(int M, int N, int A[N][M], int B[M][N])
 {
-   int temp;
+   int temp;// diag;
    int blocksz; // 8 for 32x32, 4 64x64, 9 for 61 x 67
    if (N == 32)// for a 32x32 matrix
    {
@@ -32,18 +32,17 @@ void transpose_submit(int M, int N, int A[N][M], int B[M][N])
    }
    else if (N == 64)
       blocksz = 4;
-   else
+   else// 61x67 case
    {
       blocksz = 12;
-      for (int i = 0; i < N; i+= blocksz)//column
+      for (int i = 0; i < M; i+= blocksz)//column
       {
-	 for (int j = 0; j < M; j+= blocksz)//row
+	 for (int j = 0; j < N; j+= blocksz)//row
 	 {
-	    for (int k = j; (k < j + blocksz) && (k <M); k++)//go through each sub block
+	    for (int k = j; (k < j + blocksz) && (k < N); k++)//go through each sub block
 	    {
-	       for (int l = i; (l < i + blocksz) && (l < N); l++)// since M != N could lead to a seg fault
-		                                                 // so we make sure the subblocks are within
-		                                                 // the range of the matrix
+	       for (int l = i; (l < i + blocksz) && (l < M); l++)// since M != N could lead to a an error with the remaining matrix
+		                                                 // so added in k < N and l < M
 	       {
 		  if (k != l)
 		     B[l][k] = A[k][l];// the rest of the matrix
@@ -58,7 +57,7 @@ void transpose_submit(int M, int N, int A[N][M], int B[M][N])
 	 }// end of second for loop
       }// end of first for loop
    }
-   // for N = 32 and 64
+   // for 64 and 32
    for (int i = 0; i < N; i+= blocksz)//row
    {
       for (int j = 0; j < N; j+= blocksz)//column
@@ -77,6 +76,7 @@ void transpose_submit(int M, int N, int A[N][M], int B[M][N])
 	    if (i == j)
 	       B[k][k] = temp;
 	 }// end of third for loop
+	 
       }// end of second for loop
    }// end of first for loop
 }
