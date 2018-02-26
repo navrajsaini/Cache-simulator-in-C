@@ -173,7 +173,7 @@ param sim_c (cache c, param par, unsigned long long int addr, char op, int size)
    else
       return par;// return cause the data is in the cache
 
-   //else we continue with a miss and evict based on the LRU
+   //else continue with a miss and evict based on the LRU
    
    int *used_l = (int*) malloc(sizeof(int)*2);// alloc storage for the used lines to store the min and max
    int min_ind = LRU(q_set, par, used_l);// get the index for the LRU to evict

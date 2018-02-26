@@ -24,75 +24,61 @@ int is_transpose(int M, int N, int A[N][M], int B[M][N]);
 char transpose_submit_desc[] = "Transpose submission";
 void transpose_submit(int M, int N, int A[N][M], int B[M][N])
 {
+   int temp;
    int blocksz; // 8 for 32x32, 4 64x64, 9 for 61 x 67
    if (N == 32)// for a 32x32 matrix
    {
       blocksz = 8;
-      for (int i = 0; i < N; i+= blocksz)
-      {
-	 for (int j = 0; j < M; j+= blocksz)
-	 {
-	    for (int k = 0; k < (i + blocksz); k++)
-	    {
-	       for (int l = 0; l < (j + blocksz); l++)
-	       {
-		  if (k != l)
-		     B[l][k] = A[k][l];// the rest of the matrix
-		  else
-		  {
-		     B[k][k] = A[k][l];// diagnal matrix
-		  }
-	       }// end of most inner for loop
-	    }// end of third for loop
-	 }// end of second for loop
-      }// end of first for loop
    }
-
-   if (N == 64)// for a 32x32 matrix
-   {
+   else if (N == 64)
       blocksz = 4;
-      for (int i = 0; i < N; i+= blocksz)
-      {
-	 for (int j = 0; j < M; j+= blocksz)
-	 {
-	    for (int k = 0; k < (i + blocksz); k++)
-	    {
-	       for (int l = 0; l < (j + blocksz); l++)
-	       {
-		  if (k != l)
-		     B[l][k] = A[k][l];// the rest of the matrix
-		  else
-		  {
-		     B[k][k] = A[k][l];// diagnal matrix
-		  }
-	       }// end of most inner for loop
-	    }// end of third for loop
-	 }// end of second for loop
-      }// end of first for loop
-   }
-
-   if (N == 67)
+   else
    {
-      blocksz = 9;
-      for (int i = 0; i < N; i+= blocksz)
+      blocksz = 12;
+      for (int i = 0; i < N; i+= blocksz)//column
       {
-	 for (int j = 0; j < M; j+= blocksz)
+	 for (int j = 0; j < M; j+= blocksz)//row
 	 {
-	    for (int k = 0; k < (i + blocksz); k++)
+	    for (int k = j; (k < j + blocksz) && (k <M); k++)//go through each sub block
 	    {
-	       for (int l = 0; l < (j + blocksz); l++)
+	       for (int l = i; (l < i + blocksz) && (l < N); l++)// since M != N could lead to a seg fault
+		                                                 // so we make sure the subblocks are within
+		                                                 // the range of the matrix
 	       {
 		  if (k != l)
 		     B[l][k] = A[k][l];// the rest of the matrix
 		  else
 		  {
-		     B[k][k] = A[k][l];// diagnal matrix
+		     temp = A[k][l];
 		  }
 	       }// end of most inner for loop
+	       if (i == j)
+		  B[k][k] = temp;// diagnal matrix
 	    }// end of third for loop
 	 }// end of second for loop
       }// end of first for loop
    }
+   // for N = 32 and 64
+   for (int i = 0; i < N; i+= blocksz)//row
+   {
+      for (int j = 0; j < N; j+= blocksz)//column
+      {
+	 for (int k = j; k < (j + blocksz); k++)//go through each block
+	 {
+	    for (int l = i; l < (i + blocksz); l++)
+	    {
+	       if (k != l)
+		  B[l][k] = A[k][l];// the rest of the matrix
+	       else
+	       {
+		  temp = A[k][l];
+	       }
+	    }// end of most inner for loop
+	    if (i == j)
+	       B[k][k] = temp;
+	 }// end of third for loop
+      }// end of second for loop
+   }// end of first for loop
 }
 
 /* 
