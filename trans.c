@@ -57,30 +57,32 @@ void transpose_submit(int M, int N, int A[N][M], int B[M][N])
 	 }// end of second for loop
       }// end of first for loop
    }
-   // for 64 and 32
-   for (int i = 0; i < N; i+= blocksz)//row
+   if (N == 32 || N == 64)
    {
-      for (int j = 0; j < N; j+= blocksz)//column
+      // for 64 and 32
+      for (int i = 0; i < N; i+= blocksz)//row
       {
-	 for (int k = j; k < (j + blocksz); k++)//go through each block
+	 for (int j = 0; j < N; j+= blocksz)//column
 	 {
-	    for (int l = i; l < (i + blocksz); l++)
+	    for (int k = j; k < (j + blocksz); k++)//go through each block
 	    {
-	       if (k != l)
-		  B[l][k] = A[k][l];// the rest of the matrix
-	       else
+	       for (int l = i; l < (i + blocksz); l++)
 	       {
-		  temp = A[k][l];
-	       }
-	    }// end of most inner for loop
-	    if (i == j)
-	       B[k][k] = temp;
-	 }// end of third for loop
-	 
-      }// end of second for loop
-   }// end of first for loop
+		  if (k != l)
+		     B[l][k] = A[k][l];// the rest of the matrix
+		  else
+		  {
+		     temp = A[k][l];
+		  }
+	       }// end of most inner for loop
+	       if (i == j)
+		  B[k][k] = temp;
+	    }// end of third for loop
+	    
+	 }// end of second for loop
+      }// end of first for loop
+   }
 }
-
 /* 
  * You can define additional transpose functions below. We've defined
  * a simple one below to help you get started. 
